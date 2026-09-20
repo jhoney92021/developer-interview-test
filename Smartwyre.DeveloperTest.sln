@@ -8,7 +8,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{ECE2D32E-18E9-4BD9-9EF7-7DD27719D5B2}"
 	ProjectSection(SolutionItems) = preProject
 		cheat-sheet.md = cheat-sheet.md
-		NOTES.md = NOTES.md
+		new-incentive.md = new-incentive.md
+		notes.md = notes.md
 		Readme.md = Readme.md
 	EndProjectSection
 EndProject

@@ -1,17 +1,51 @@
-﻿using Smartwyre.DeveloperTest.Types;
+﻿using Smartwyre.DeveloperTest.Data.Abstracts;
+using Smartwyre.DeveloperTest.Types;
+using System;
+using System.Linq;
 
 namespace Smartwyre.DeveloperTest.Data;
 
-public class RebateDataStore
+public class RebateDataStore : IRebateDataStore, IDisposable
 {
-    public Rebate GetRebate(string rebateIdentifier)
+    private readonly SmartwyreDbContext _context;
+    private bool _disposed;
+
+    public RebateDataStore(SmartwyreDbContext context)
     {
-        // Access database to retrieve account, code removed for brevity 
-        return new Rebate();
+        _context = context;
     }
 
-    public void StoreCalculationResult(Rebate account, decimal rebateAmount)
+    public Rebate GetRebate(string rebateIdentifier)
     {
-        // Update account in database, code removed for brevity
+        return _context.Rebates.FirstOrDefault(r => r.Identifier == rebateIdentifier);
+    }
+
+    public void StoreCalculationResult(Rebate rebate, decimal amount)
+    {
+        _context.CalculationLogs.Add(new RebateCalculationLog
+        {
+            RebateIdentifier = rebate.Identifier,
+            Amount = amount
+        });
+        _context.SaveChanges();
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Clean up the DB context reference held by this store
+                _context?.Dispose();
+            }
+            _disposed = true;
+        }
     }
 }

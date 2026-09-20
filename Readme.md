@@ -1,5 +1,15 @@
 # Smartwyre Developer Test Instructions
 
+### Quick Links
+
+| Document | Purpose |
+| :--- | :--- |
+| [Architectural Notes](NOTES.md) | Details on SOLID design choices, YAGNI pragmatism, and test strategies. |
+| [Adding a New Incentive Runbook](new-incentive.md) | Step-by-step developer guide and code example for adding new incentives. |
+| [CLI Cheat Sheet](cheat-sheet.md) | Streamlined PowerShell terminal commands to clean, build, run, and test. |
+
+---
+
 You have been selected to complete our candidate coding exercise. Please follow the directions in this readme.
 
 Clone, **DO NOT FORK**, this repository to your account on the online Git resource of your choosing (GitHub, BitBucket, GitLab, etc.). Your solution should retain previous commit history and you should utilize best practices for committing your changes to the repository.

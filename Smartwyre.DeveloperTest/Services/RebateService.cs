@@ -1,97 +1,67 @@
-﻿using Smartwyre.DeveloperTest.Data;
+﻿using Microsoft.Extensions.Logging;
+using Smartwyre.DeveloperTest.Data.Abstracts;
+using Smartwyre.DeveloperTest.Extensions;
 using Smartwyre.DeveloperTest.Types;
 
 namespace Smartwyre.DeveloperTest.Services;
 
 public class RebateService : IRebateService
 {
+    private readonly IRebateDataStore _rebateDataStore;
+    private readonly IProductDataStore _productDataStore;
+    private readonly ILogger<RebateService> _logger;
+
+    public RebateService(
+        IRebateDataStore rebateDataStore,
+        IProductDataStore productDataStore,
+        ILogger<RebateService> logger)
+    {
+        _rebateDataStore = rebateDataStore;
+        _productDataStore = productDataStore;
+        _logger = logger;
+    }
+
     public CalculateRebateResult Calculate(CalculateRebateRequest request)
     {
-        var rebateDataStore = new RebateDataStore();
-        var productDataStore = new ProductDataStore();
+        CalculateRebateResult result = new();
 
-        Rebate rebate = rebateDataStore.GetRebate(request.RebateIdentifier);
-        Product product = productDataStore.GetProduct(request.ProductIdentifier);
+        Rebate rebate = _rebateDataStore.GetRebate(request.RebateIdentifier);
+        Product product = _productDataStore.GetProduct(request.ProductIdentifier);
 
-        var result = new CalculateRebateResult();
-
-        var rebateAmount = 0m;
-
-        switch (rebate.Incentive)
+        if (rebate == null)
         {
-            case IncentiveType.FixedCashAmount:
-                if (rebate == null)
-                {
-                    result.Success = false;
-                }
-                else if (!product.SupportedIncentives.HasFlag(SupportedIncentiveType.FixedCashAmount))
-                {
-                    result.Success = false;
-                }
-                else if (rebate.Amount == 0)
-                {
-                    result.Success = false;
-                }
-                else
-                {
-                    rebateAmount = rebate.Amount;
-                    result.Success = true;
-                }
-                break;
-
-            case IncentiveType.FixedRateRebate:
-                if (rebate == null)
-                {
-                    result.Success = false;
-                }
-                else if (product == null)
-                {
-                    result.Success = false;
-                }
-                else if (!product.SupportedIncentives.HasFlag(SupportedIncentiveType.FixedRateRebate))
-                {
-                    result.Success = false;
-                }
-                else if (rebate.Percentage == 0 || product.Price == 0 || request.Volume == 0)
-                {
-                    result.Success = false;
-                }
-                else
-                {
-                    rebateAmount += product.Price * rebate.Percentage * request.Volume;
-                    result.Success = true;
-                }
-                break;
-
-            case IncentiveType.AmountPerUom:
-                if (rebate == null)
-                {
-                    result.Success = false;
-                }
-                else if (product == null)
-                {
-                    result.Success = false;
-                }
-                else if (!product.SupportedIncentives.HasFlag(SupportedIncentiveType.AmountPerUom))
-                {
-                    result.Success = false;
-                }
-                else if (rebate.Amount == 0 || request.Volume == 0)
-                {
-                    result.Success = false;
-                }
-                else
-                {
-                    rebateAmount += rebate.Amount * request.Volume;
-                    result.Success = true;
-                }
-                break;
+            _logger.LogWarning("Rebate calculation failed: Rebate record '{RebateId}' not found.", request.RebateIdentifier);
+            result.Success = false;
+            return result;
         }
 
-        if (result.Success)
+        if (product == null)
         {
-            var storeRebateDataStore = new RebateDataStore();
-            storeRebateDataStore.StoreCalculationResult(rebate, rebateAmount);
+            _logger.LogWarning("Rebate calculation failed: Product record '{ProductId}' not found.", request.ProductIdentifier);
+            result.Success = false;
+            return result;
+        }
+
+        SupportedIncentiveType targetFlag = rebate.Incentive.ToSupportedFlag();
+        if (!product.SupportedIncentives.HasFlag(targetFlag))
+        {
+            _logger.LogWarning("Rebate calculation failed: Product '{ProductId}' does not support incentive type '{Incentive}'. Required flag: {TargetFlag}",
+                product.Identifier, rebate.Incentive, targetFlag);
+            result.Success = false;
+            return result;
+        }
+
+        if (rebate.Incentive.HasValidInputs(rebate, product, request.Volume))
+        {
+            decimal rebateAmount = rebate.Incentive.CalculateAmount(rebate, product, request.Volume);
+            _rebateDataStore.StoreCalculationResult(rebate, rebateAmount);
+            result.Success = true;
+        }
+        else
+        {
+            _logger.LogCritical("Rebate calculation structural violation: Zero or invalid metrics provided for rule strategy '{Incentive}'. Rebate Amount: {RebateAmount}, Product Price: {Price}, Request Volume: {Volume}",
+                rebate.Incentive, rebate.Amount, product.Price, request.Volume);
+            result.Success = false;
         }
 
         return result;
